@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standart Hesap Makinesi v4.8</title>
+    <style>
+        /* TEMEL STİLLER */
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #f4f4f4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        /* --- KATMAN 1: HESAP MAKİNESİ (DECOY) --- */
+        #decoy { height: 100%; display: flex; align-items: center; justify-content: center; background: #d1d1d1; transition: 0.5s; }
+        .calc-box { width: 320px; background: #fff; padding: 25px; border-radius: 15px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); }
+        #calc-display { width: 100%; height: 60px; background: #eee; border: none; margin-bottom: 15px; text-align: right; padding: 15px; font-size: 28px; box-sizing: border-box; color: #333; border-radius: 5px; }
+        .calc-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .c-btn { padding: 18px; background: #f9f9f9; border: 1px solid #ddd; cursor: pointer; text-align: center; font-weight: bold; border-radius: 8px; transition: 0.2s; }
+        .c-btn:hover { background: #e0e0e0; }
+        .c-btn-op { background: #ff9500; color: white; border: none; }
+
+        /* --- KATMAN 2: MATRIX EFEKTİ --- */
+        #matrix { position: fixed; top: 0; left: 0; display: none; z-index: 100; pointer-events: none; }
+
+        /* --- KATMAN 3: ANA AJAN PANELİ (ULTIMATE) --- */
+        #panel {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; color: #00FF41; z-index: 200; padding: 20px; box-sizing: border-box; overflow-y: auto; font-family: 'Courier New', monospace;
+        }
+        .header { text-align: center; border-bottom: 2px solid #00FF41; padding-bottom: 10px; margin-bottom: 20px; letter-spacing: 3px; text-shadow: 0 0 10px #00FF41; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .module { border: 1px solid #00FF41; padding: 15px; background: rgba(0, 255, 65, 0.03); position: relative; }
+        h3 { margin-top: 0; font-size: 14px; text-transform: uppercase; color: #00FF41; border-left: 4px solid #00FF41; padding-left: 10px; }
+
+        /* GÖRÜNTÜLÜ KONUŞMA VE MASKE */
+        #cam-box { position: relative; width: 100%; height: 220px; background: #111; border: 1px solid #004411; margin-bottom: 10px; }
+        #video-feed { width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) sepia(0.5) contrast(1.2); }
+        #face-mask { position: absolute; top: 20%; left: 30%; width: 40%; height: 25%; background: #000; opacity: 0.95; display: none; box-shadow: 0 0 30px #000; }
+        
+        /* CHAT VE AI */
+        iframe { width: 100%; height: 250px; border: none; filter: invert(1) hue-rotate(180deg) brightness(0.7); }
+        #ai-chat { height: 150px; overflow-y: auto; background: rgba(0,0,0,0.5); border: 1px solid #004411; padding: 10px; font-size: 13px; margin-bottom: 10px; }
+        input, textarea { width: 100%; background: #000; border: 1px solid #00FF41; color: #00FF41; padding: 10px; box-sizing: border-box; outline: none; }
+
+        /* TAKTİK HARİTA VE TERMINAL */
+        #map { height: 120px; background: #050505; position: relative; border: 1px dashed #00FF41; overflow: hidden; }
+        .point { position: absolute; width: 6px; height: 6px; background: red; border-radius: 50%; box-shadow: 0 0 10px red; animation: blink 1.5s infinite; }
+        #scanner { position: absolute; width: 100%; height: 2px; background: #00FF41; animation: scan 4s linear infinite; }
+        #term-log { height: 80px; font-size: 10px; color: #008800; overflow: hidden; margin-top: 5px; }
+
+        /* BUTONLAR */
+        .btn-act { background: #00FF41; color: #000; border: none; padding: 10px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
+        .panic { background: #ff0000; color: white; border: none; padding: 15px; width: 100%; cursor: pointer; font-weight: bold; margin-top: 20px; font-size: 16px; }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+        @keyframes scan { from { top: 0; } to { top: 100%; } }
+    </style>
+</head>
+<body>
+
+    <div id="decoy">
+        <div class="calc-box">
+            <div id="calc-display">0</div>
+            <div class="calc-btns">
+                <div class="c-btn">7</div><div class="c-btn">8</div><div class="c-btn">9</div><div class="c-btn c-btn-op">/</div>
+                <div class="c-btn">4</div><div class="c-btn">5</div><div class="c-btn">6</div><div class="c-btn c-btn-op">*</div>
+                <div class="c-btn">1</div><div class="c-btn">2</div><div class="c-btn">3</div><div class="c-btn c-btn-op">-</div>
+                <div class="c-btn">0</div><div class="c-btn">C</div><div class="c-btn c-btn-op">=</div><div class="c-btn c-btn-op">+</div>
+            </div>
+            <p style="text-align:center; font-size:10px; color:#999; margin-top:15px;">v4.8.2-Final-Build</p>
+        </div>
+    </div>
+
+    <canvas id="matrix"></canvas>
+
+    <div id="panel">
+        <div class="header"><h1>> GÖLGE KARARGAH // OMNI-PORTAL v12.0</h1></div>
+        
+        <div class="grid">
+            <div class="module">
+                <h3>📷 Anonim Video Kanalı</h3>
+                <div id="cam-box">
+                    <video id="video-feed" autoplay playsinline></video>
+                    <div id="face-mask"></div>
+                </div>
+                <button class="btn-act" onclick="initCam()">BAĞLANTIYI AÇ</button>
+                <div style="font-size:10px; margin-top:8px;">
+                    <input type="checkbox" id="mask-check" checked onchange="toggleMask()"> Yüz Gizleme (Siyah Bant) Aktif
+                </div>
+            </div>
+
+            <div class="module" style="grid-column: span 2;">
+                <h3>🌐 Global Ajan Ağı (Canlı Sohbet)</h3>
+                <iframe src="https://tlk.io/ajan-shadow-hq"></iframe>
+            </div>
+
+            <div class="module">
+                <h3>🤖 AI Operatör (Gölge-1)</h3>
+                <div id="ai-chat"></div>
+                <input type="text" id="ai-input" placeholder="Bir şey yaz veya soru sor...">
+            </div>
+
+            <div class="module">
+                <h3>🔐 Gelişmiş Kripto Terminali</h3>
+                <textarea id="crypt-in" rows="3" placeholder="Metni buraya girin..."></textarea>
+                <div style="display:flex; gap:5px; margin-top:5px;">
+                    <button onclick="handleCrypt(true)" style="flex:1; background:#00FF41; border:none; padding:8px; cursor:pointer; font-weight:bold;">KODLA</button>
+                    <button onclick="handleCrypt(false)" style="flex:1; background:#004411; color:white; border:none; padding:8px; cursor:pointer;">ÇÖZ</button>
+                </div>
+                <div id="crypt-out" style="margin-top:10px; font-size:11px; color:orange; word-break:all;"></div>
+            </div>
+
+            <div class="module">
+                <h3>📍 Operasyon Sahası & Loglar</h3>
+                <div id="map">
+                    <div class="point" style="top:20%; left:30%;"></div>
+                    <div class="point" style="top:70%; left:80%;"></div>
+                    <div id="scanner"></div>
+                </div>
+                <div id="term-log"></div>
+            </div>
+
+            <div class="module">
+                <h3>📝 Geçici Operasyon Notları</h3>
+                <textarea rows="6" placeholder="Bu notlar asla kaydedilmez..."></textarea>
+            </div>
+        </div>
+
+        <button class="panic" onclick="location.reload()">SİSTEMİ İMHA ET VE ÇIK</button>
+    </div>
+
+    <script>
+        // --- 1. GİRİŞ KONTROLÜ (DELTA9) ---
+        let keyBuffer = "";
+        document.addEventListener('keydown', (e) => {
+            keyBuffer += e.key.toUpperCase();
+            if (keyBuffer.length > 10) keyBuffer = keyBuffer.substring(1);
+            if (keyBuffer.includes("DELTA9")) {
+                document.getElementById('decoy').style.display='none';
+                const cvs = document.getElementById('matrix');
+                cvs.style.display='block';
+                const ctx = cvs.getContext('2d');
+                cvs.width=window.innerWidth; cvs.height=window.innerHeight;
+                const drops = Array(Math.floor(cvs.width/15)).fill(1);
+                const mInterval = setInterval(() => {
+                    ctx.fillStyle="rgba(0,0,0,0.1)"; ctx.fillRect(0,0,cvs.width,cvs.height);
+                    ctx.fillStyle="#0F0";
+                    drops.forEach((y,i) => {
+                        ctx.fillText(Math.floor(Math.random()*2), i*15, y*15);
+                        if(y*15>cvs.height && Math.random()>0.98) drops[i]=0;
+                        drops[i]++;
+                    });
+                }, 30);
+                setTimeout(() => { clearInterval(mInterval); cvs.style.display='none'; document.getElementById('panel').style.display='block'; }, 2000);
+            }
+        });
+
+        // --- 2. HESAP MAKİNESİ MANTIĞI ---
+        const disp = document.getElementById('calc-display');
+        document.querySelectorAll('.c-btn').forEach(btn => {
+            btn.onclick = () => {
+                const val = btn.innerText;
+                if(val === '=') try { disp.innerText = eval(disp.innerText); } catch { disp.innerText="Hata"; }
+                else if(val === 'C') disp.innerText = "0";
+                else disp.innerText = disp.innerText === "0" ? val : disp.innerText + val;
+            };
+        });
+
+        // --- 3. KAMERA VE MASKELEME ---
+        async function initCam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('video-feed').srcObject = stream;
+                toggleMask();
+            } catch (err) { alert("Kamera izni verilmedi!"); }
+        }
+        function toggleMask() {
+            document.getElementById('face-mask').style.display = document.getElementById('mask-check').checked ? 'block' : 'none';
+        }
+
+        // --- 4. GELİŞMİŞ AI SOHBET ---
+        const aiInput = document.getElementById('ai-input');
+        const aiChat = document.getElementById('ai-chat');
+        const aiKnowledge = {
+            "merhaba": "Selam Ajan. Karargah tam kapasiteyle çalışıyor.",
+            "nasılsın": "Sistem çekirdeğim serin, mantığım %100 verimli.",
+            "kimsin": "Ben Gölge-1. Senin için tasarlanmış en gelişmiş dijital operatörüm.",
+            "görev": "Muğla yakınlarındaki veri sızıntısını takip ediyoruz. Hedef beklemede.",
+            "durum": "Proxy bağlantısı aktif. 128-bit şifreleme ile korunuyorsun.",
+            "yardım": "Komutlar: merhaba, nasılsın, kimsin, görev, durum, imha."
+        };
+        aiInput.onkeypress = (e) => {
+            if(e.key === 'Enter') {
+                const text = aiInput.value.toLowerCase();
+                aiChat.innerHTML += `<div style="color:#0088ff">> Ajan: ${aiInput.value}</div>`;
+                aiInput.value = "";
+                setTimeout(() => {
+                    let r = "Anlaşılamadı. Veri tabanımı 'yardım' yazarak kontrol edebilirsin.";
+                    for(let k in aiKnowledge) if(text.includes(k)) r = aiKnowledge[k];
+                    aiChat.innerHTML += `<div style="color:#00FF41">AI: ${r}</div>`;
+                    aiChat.scrollTop = aiChat.scrollHeight;
+                }, 500);
+            }
+        };
+
+        // --- 5. KRİPTO ÜNİTESİ ---
+        function handleCrypt(isEnc) {
+            const input = document.getElementById('crypt-in').value;
+            try {
+                const res = isEnc ? btoa(unescape(encodeURIComponent(input))) : decodeURIComponent(escape(atob(input)));
+                document.getElementById('crypt-out').innerText = res;
+            } catch { document.getElementById('crypt-out').innerText = "Hata: Geçersiz format!"; }
+        }
+
+        // --- 6. TERMINAL LOGLARI ---
+        const logBox = document.getElementById('term-log');
+        const logData = ["Firewall deliniyor...", "IP gizleniyor: 85.XXX.XX", "Paketler şifreleniyor...", "Sistem sızıntısı engellendi.", "Uzak bağlantı stabil."];
+        setInterval(() => {
+            const log = document.createElement('div');
+            log.innerText = "> " + logData[Math.floor(Math.random()*logData.length)];
+            logBox.appendChild(log);
+            if(logBox.childNodes.length > 5) logBox.removeChild(logBox.firstChild);
+        }, 3000);
+
+        // SAĞ TIK ENGELİ
+        document.addEventListener('contextmenu', e => e.preventDefault());
+    </script>
+</body>
+</html>
